@@ -2,6 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
+//Get your API key from the QR-Answers app
 const apiKey = "api_e138069b91e24cbd81329394de4b5c6506605ad690d340cbbf96931d1ff16b66";
 const qranswers = require('qranswers')(apiKey);
 

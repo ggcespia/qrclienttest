@@ -8,6 +8,8 @@ const apiKey = "api_e138069b91e24cbd81329394de4b5c6506605ad690d340cbbf96931d1ff1
 const qranswers = require("qranswers")(apiKey);
 
 export default function App() {
+  const [qrInited, setQrInited] = useState(false);
+
   const [fetchingProjects, setFetchingProjects] = useState(false);
   const [projects, setProjects] = useState([]);
   const [locations, setLocations] = useState({});   // indexed by projectId
@@ -20,23 +22,24 @@ export default function App() {
   const [fetchingCampaigns, setFetchingCampaigns] = useState({});   // indexed by projectId
 
   useEffect(() => {
-    async function initQR() {
-      const initApiOk = await qranswers.api.initialize();      
-      
-      const initOk = await qranswers.subscriptions.initialize();
-      if (initOk) {
-        const sub = qranswers.subscriptions.subscribeToAllResponses((response) => {
-          console.log('response', response);
-        })
-        return sub;
+    if (qrInited) {
+      const sub = qranswers.subscriptions.subscribeToAllResponses((response) => {
+        console.log('response', response);
+      })
+      return () => {
+        // Subscriptions need cleaned up when the component unmounts
+        qranswers.subscriptions.unsubscribeToAllResponses(sub);
       }
+    }
+}, [qrInited]);
+
+  useEffect(() => {
+    async function initQR() {
+      const initOk = await qranswers.subscriptions.initialize();
+      setQrInited(initOk);
     }
 
     const sub = initQR();
-
-    return () => {
-      qranswers.subscriptions.unsubscribeToAllResponses(sub);
-    }
   }, []);
 
   // Projects are retrieved based on your API Key
@@ -51,6 +54,15 @@ export default function App() {
       console.log(projRet);
     }
   };
+
+  const fetchResponseDetailsListByProject = async (projectId) => {
+    const getRes = await qranswers.api.getResponseDetailsListByProject(projectId);
+    if (getRes.data) {
+      console.log(getRes.data);
+    } else {
+      console.log(getRes);
+    }
+  }
 
   // Locations are retrieved based on the project ID
   const fetchLocations = async (projectId) => {
@@ -404,7 +416,8 @@ export default function App() {
     }
   }
 
-  return (
+  const renderHierarchy = () => {
+    return (
     <ScrollView scrollEnabled={true} contentContainerStyle={{ display: 'flex', flexGrow: 1, flexDirection: 'column' }}
     >
       {!projects || projects.length == 0 &&
@@ -422,6 +435,11 @@ export default function App() {
         <ActivityIndicator size="large" color="#0000ff" />}
       {renderProjects()}
     </ScrollView>
+    )
+  }
+
+  return (
+    renderHierarchy()
   );
 }
 

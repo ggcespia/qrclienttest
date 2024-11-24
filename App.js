@@ -4,6 +4,7 @@ import { RadioButton, Checkbox } from 'react-native-paper';
 import { ScrollView } from 'react-native-gesture-handler';
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Linking from 'expo-linking';
+import FullTest from './components/FullTest';
 
 //Get your API key from the QR-Answers app
 //const apiKey = "api_e138069b91e24cbd81329394de4b5c6506605ad690d340cbbf96931d1ff16b66";
@@ -20,13 +21,14 @@ export default function App() {
   const [canRemoveLocations, setCanRemoveLocations] = useState({});   // indexed by projectId
   const [questions, setQuestions] = useState({});   // indexed by projectId
   const [fetchingQuestions, setFetchingQuestions] = useState({});   // indexed by projectId
+  const [fetchingQuestionLocations, setFetchingQuestionLocations] = useState({});   // indexed by projectId
+  const [questionLocations, setQuestionLocations] = useState({});   // indexed by projectId
   const [canRemoveQuestions, setCanRemoveQuestions] = useState({});   // indexed by projectId
   const [answers, setAnswers] = useState({});   // indexed by questionId
   const [fetchingAnswers, setFetchingAnswers] = useState({});   // indexed by questionId
   const [canRemoveAnswers, setCanRemoveAnswers] = useState({});   // indexed by questionId
   const [campaigns, setCampaigns] = useState({});   // indexed by projectId
   const [fetchingCampaigns, setFetchingCampaigns] = useState({});   // indexed by projectId
-  const [projectId, setProjectId] = useState(null);
   const [campStat, setCampStat] = useState('active');
 
   useEffect(() => {
@@ -116,6 +118,20 @@ export default function App() {
     }
     setFetchingAnswers({...fetchingAnswers, [questionId]: false});
   };
+  const fetchQuestionLocations = async (campaignId) => {
+    setFetchingQuestionLocations({...fetchingQuestionLocations, [campaignId]: true});
+    const getRes = await qranswers.api.getQuestionsAtLocationList(campaignId);
+    if (getRes.data) {
+      var newList = {...questionLocations};
+      newList[campaignId] = getRes.data;
+      newList[campaignId].visible = true;
+      setQuestionLocations(newList);
+    } else {
+      console.log(getRes);
+    }
+    setFetchingQuestionLocations({...fetchingQuestionLocations, [campaignId]: false});
+  };
+
 
   // Campaigns are retrieved based on the project ID
   const fetchCampaigns = async (projectId) => {
@@ -131,6 +147,25 @@ export default function App() {
     }
     setFetchingCampaigns({...fetchingCampaigns, [projectId]: false});
   };
+
+  const renderQuestionLocations = (campaignId) => {
+    if (questionLocations[campaignId] && questionLocations[campaignId].visible) {
+      return (
+        <View style={{ marginLeft: 16 }}>
+          {questionLocations[campaignId].map((ql, index) => {
+            return (
+              <View key={ql.id} style={{ backgroundColor: index % 2 == 0 ? '#bbbbff' : '#ddddff' }}>
+                <Text style={{ color: 'black', fontSize: 18 }}>QL ID: {ql.id}</Text>
+                <Text style={{ color: 'black', fontSize: 18 }}>   Questions: {ql.questions}</Text>
+              </View>
+            )
+          })}
+        </View>
+      )
+    } else {
+      return null;
+    }
+  }
 
   const renderLocations = (projectId) => {
     if (locations[projectId] && locations[projectId].visible) {
@@ -341,7 +376,8 @@ export default function App() {
         <View style={{ marginLeft: 16 }}>
           {campaigns[projectId].map((campaign, index) => {
             return (
-              <View key={campaign.id} style={{backgroundColor: index % 2 == 0 ? '#bbffbb' : '#ddffdd'}}>
+              <View key={campaign.id}>
+              <View style={{backgroundColor: index % 2 == 0 ? '#bbffbb' : '#ddffdd'}}>
                 <Text style={{ color: 'black', fontSize: 18 }}>Campaign ID: {campaign.id}</Text>
                 <Text style={{ color: 'black', fontSize: 18 }}>        Name: {campaign.name}</Text>
                 <Text style={{ color: 'black', fontSize: 18 }}>        Abbreviation: {campaign.abbreviation}</Text>
@@ -401,6 +437,33 @@ export default function App() {
 
                     : null}
                 </View>
+              </View>
+              <Pressable style={{
+                  paddingLeft: 10, paddingRight: 10, paddingTop: 10, paddingBottom: 10,
+                  flexDirection: 'row', backgroundColor: 'rgb(192,192,192)'
+                }}
+                  onPress={() => {
+                    if (!questionLocations[campaign.id] && !fetchingQuestionLocations[campaign.id]) {
+                      fetchQuestionLocations(campaign.id);
+                    }
+                    if (questionLocations[campaign.id] && questionLocations[campaign.id].hasOwnProperty('visible')) {
+                      var newList = { ...questionLocations };
+                      newList[campaign.id].visible = !newList[campaign.id].visible;
+                      setQuestionLocations(newList);
+                    }
+                  }}>
+                  <Text style={{ color: 'white', fontSize: 18, paddingRight: 10 }}>Question Assignments</Text>
+                  <Ionicons
+                    name={questionLocations[campaign.id] && questionLocations[campaign.id].visible ? "chevron-up" : "chevron-down"}
+                    color={'white'}
+                    size={24}
+                  />
+                </Pressable>
+                {fetchingQuestionLocations[campaign.id] &&
+                  <ActivityIndicator size="large" color="#0000ff" />
+                }
+                {renderQuestionLocations(campaign.id)}
+
               </View>
             )
           })}
@@ -575,40 +638,7 @@ export default function App() {
     }
   }
 
-  // Upate name to "API Updated Project"
-  const updateProject = async (pid) => {
-    try {
-      const projectParams = {
-        name: 'API Updated Project',
-        description: 'This project was updated by the QR-Answers API Tester'
-      }
-      const res = await qranswers.api.updateProject(pid, projectParams);
-      console.log(res);
-    } catch (err) {
-      console.log(err);
-    }
-  }
 
-
-  const createProject = async () => {
-    try {
-      const projectParams = {
-        name: 'QR-Answers API Tester',
-        abbreviation: 'QAT',
-        tags: [{name: 'test'}, {name: 'api'}],
-        description: 'This project was created by the QR-Answers API Tester'
-      }
-      const res = await qranswers.api.createProject(projectParams);
-
-      if (res.success) {
-        setProjectId(res.data.id);
-      }
-
-      console.log(res);
-    } catch (err) {
-      console.log(err);
-    }
-  }
 
   const showCheckingCanRemoveLocations = (locationId, projectId) => {
     let rmList = { ...canRemoveLocations };
@@ -750,25 +780,9 @@ export default function App() {
                 <Text style={{ color: 'white', fontWeight: 'bold' }}>Get Projects</Text>
               </Pressable>
             </View>
-            <View style={{ marginLeft: 16 }}>
-
-              <Pressable style={{ width: 200, padding: 10, backgroundColor: '#F000B4', borderRadius: 5, marginTop: 10 }}
-                onPress={() => {
-                  createProject();
-                }}>
-                <Text style={{ color: 'white', fontWeight: 'bold' }}>Create Project</Text>
-              </Pressable>
-            </View>
-            {projectId ?
-              <View style={{ marginLeft: 16 }}>
-                <Pressable style={{ width: 200, padding: 10, backgroundColor: '#F000B4', borderRadius: 5, marginTop: 10 }}
-                  onPress={async () => {
-                    updateProject(projectId);
-                  }}>
-                  <Text style={{ color: 'white', fontWeight: 'bold' }}>Update Project</Text>
-                </Pressable>
-              </View>
-              : null}
+            <FullTest
+              qranswers={qranswers}
+            />
           </>
     }
       {fetchingProjects &&
